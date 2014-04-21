@@ -14,6 +14,7 @@ public class Food
 	{
 		this.setPosX(x);
 		this.setPosY(y);
+		this.setWorld(world);
 	}
 
 	public void setWorld(World world) 
@@ -23,12 +24,14 @@ public class Food
 
 	public void setPosY(double y) 
 	{
-		this.y = y;
+		if (isValidPosition(this.getPosX(), y))
+				this.y = y;
 	}
 
 	public void setPosX(double x) 
 	{
-		this.x = x;
+		if (isValidPosition(x,this.getPosY()))
+			this.x = x;
 	}
 
 	public double getPosY() 
@@ -61,6 +64,13 @@ public class Food
 		if (eaten)
 			return false;
 		return true;
+	}
+	
+	public boolean isValidPosition(double posX, double posY) throws IllegalArgumentException 
+	{
+	        if ((posX == Double.NEGATIVE_INFINITY) || (posY == Double.NEGATIVE_INFINITY) || (posX == Double.POSITIVE_INFINITY) || (posY == Double.POSITIVE_INFINITY))
+	        	throw new IllegalArgumentException("Not a valid value for position");
+	        return true;
 	}
 	
 	public void destroy()

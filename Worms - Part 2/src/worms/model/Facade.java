@@ -1,23 +1,16 @@
 package worms.model;
 
-import java.awt.Image;
+
 import java.util.Collection;
 import java.util.Random;
 
-import javax.swing.ImageIcon;
- 
-//TODO: Implement all unimplemented methods (DUH)
+//TODO: Spawning bug
 
 public class Facade implements IFacade 
 {
  
-	
-		
-		Image Simple = new ImageIcon("Simple.png").getImage();
-		Image Skulls_lowres = new ImageIcon("Skulls-lowres.png").getImage();
-		Image Skulls = new ImageIcon("Skulls.png").getImage();
-		Image image;
 		private Random random = new Random();
+		private Team team;
 
 		/**
 		 * This method will create a worm and immediately give him his needed features:
@@ -43,55 +36,12 @@ public class Facade implements IFacade
         @Override
         public Worm createWorm(World world, double x, double y, double direction, double radius, String name) 
         {
-                Worm worm = new Worm(x , y, radius, direction, name);
+                Worm worm = new Worm(world, x , y, radius, direction, "Default");
+                worm.setHP(worm.getMaxHP());
+                worm.setCurrentAP(worm.getMaxAP());
                 return worm;
         }
         
-        /**
-         * This method checks if the created worm can do a certain movement 
-         * 
-         * @return worm.inspectMovement(nbSteps) (if current AP is not high enough, this will return false)
-         * 
-         * @param worm
-         * 		The newly created worm
-         * 
-         * @param nbSteps
-         * 		Number of steps a worm will move
-         */
-        @Override
-        public boolean canMove(Worm worm, int nbSteps) 
-        {
-                return worm.isValidMovement();
-        }
-        
-        /**
-         * This method moves the worm by a number of steps
-         * 
-         * @try worm.Move(nbSteps) (we try to move the worm)
-         * 
-         * @throws ModelException
-         * 		If worm.Move(nbSteps) throws IllegalArgumentException
-         * 
-         * @param worm
-         * 		The newly created worm
-         * 
-         * @param nbSteps
-         * 		Number of steps a worm will move
-         *
-         */
-        @Override
-        public void move(Worm worm, int nbSteps) 
-        {
-                try
-                {
-                        worm.move();
-                }
-                catch (IllegalArgumentException exc)
-                {
-                   throw new ModelException(exc.getMessage());
-                }
-               
-        }
         
         /**
          * This method checks if the worm can do a certain turn
@@ -129,35 +79,7 @@ public class Facade implements IFacade
                worm.Turn(angle);
         }
         
-        /**
-         * This method makes the worm jump in a certain direction, for a certain time, to a certain position
-         * 
-         * @param worm
-         * 		The newly created worm
-         * 
-         * @effect
-         * 		The worm will change position to the newly calculated position in worm if there is enough AP left
-         */
-        @Override
-        public void jump(Worm worm) 
-        {
-               worm.Jump();
-        }
-        
-        /**
-         * This method recalls the value of Time in the class worms (the amount of time spent in the air while jumping)
-         * 
-         * @param worm
-         * 		The newly created worm
-         * 
-         * @return worm.JumpTime()  (the amount of time the worm is in the air while jumping)
-         */
-        @Override
-        public double getJumpTime(Worm worm) 
-        {
-                return worm.JumpTime();
-        }
-        
+       
         /**
          * This method recalls the value of JumpStep in the class worms (the X- and Y-position of the worm at all times in the air while jumping)
          * 
@@ -422,28 +344,35 @@ public class Facade implements IFacade
 		}
 
 		@Override
-		public void addEmptyTeam(World world, String newName) 
+		public void addEmptyTeam(World world, String newName) throws ModelException
 		{
-			Team team = new Team(newName, world);
-			world.addTeam(team);	
+			if (world.amountOfTeams() < 10)
+			{
+				Team team = new Team(newName, world);
+				world.addTeam(team);	
+			}
+			if (world.amountOfTeams() > 10)
+			{
+				throw new ModelException("Too many teams in this world");
+			}
 		}
 
 		@Override
 		public void addNewWorm(World world) 
 		{
-			world.addWorm(createWorm(world, random.nextDouble(), random.nextDouble(), random.nextDouble(), random.nextDouble(), "Default"));
+			world.addWorm();
 		}
 
 		@Override
 		public void addNewFood(World world) 
 		{
-			world.addFood(createFood(world, random.nextDouble(), random.nextDouble()));
+			world.addFood();
 		}
 
 		@Override
 		public void startGame(World world) 
 		{
-			world = new World(world.getWorldHeight(), world.getWorldWidth(), world.getPassableMap(random.nextDouble(), random.nextDouble()), random);
+			world = new World(world.getWorldHeight(), world.getWorldWidth(), world.getPassableMap(), random);
 		}
 
 		@Override
@@ -483,17 +412,19 @@ public class Facade implements IFacade
 		@Override
 		public String getTeamName(Worm worm) 
 		{
-			return worm.getTeam().getName();
+			if (worm.getTeam() != null)
+				return team.getName();
+			return null;
 		}
 
 		@Override
-		public double getMaxHitPoints(Worm worm) 
+		public int getMaxHitPoints(Worm worm) 
 		{
 			return worm.getMaxHP();
 		}
 
 		@Override
-		public double getHitPoints(Worm worm) 
+		public int getHitPoints(Worm worm) 
 		{
 			return worm.getHP();
 		}
@@ -513,7 +444,7 @@ public class Facade implements IFacade
 		@Override
 		public boolean canMove(Worm worm) 
 		{
-			return worm.isValidMovement();
+			return worm.canMove();
 		}
 
 		@Override
@@ -538,6 +469,7 @@ public class Facade implements IFacade
 		public void selectNextWeapon(Worm worm) 
 		{
 			worm.selectNextWeapon();
+			worm.setSelectedWeapon();
 		}
 
 		@Override
@@ -611,7 +543,7 @@ public class Facade implements IFacade
 		
 		public Projectile createProjectile(World world, double x, double y) 
 		{
-			Projectile projectile = new Projectile(x, y);
+			Projectile projectile = new Projectile(world, x, y);
 			return projectile;
 		}
 		
@@ -620,12 +552,14 @@ public class Facade implements IFacade
 			return new Team(name, world);
 		}
 
-
 		public World createWorld(double width, double height, boolean[][] passableMap, Random random) 
 		{
 			return new World(width, height, passableMap, random);
 		}
 
-		
+		public boolean canShoot(Worm worm)
+		{
+			return worm.canShoot();
+		}
 
 }

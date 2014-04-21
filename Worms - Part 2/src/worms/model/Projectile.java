@@ -11,27 +11,39 @@ public class Projectile
 	final double density = 7800;
 	private double mass;
 	private double force;
-	Worm currentWorm = world.currentWorm();
 	Worm worm;
 	private final double g = 9.80665;
 	private double time;
 	private double distance;
 	private double velocity;
 	
-	public Projectile(double x, double y) 
+	public Projectile(World world, double x, double y) 
 	{
 		this.setPosX(x);
 		this.setPosY(y);
+		this.setWorld(world);
+	}
+
+	public void setWorld(World world) 
+	{
+		this.world = world;
+	}
+	
+	public World getWorld()
+	{
+		return world;
 	}
 
 	public void setPosY(double y) 
 	{
-		this.y = y;
+		if (isValidPosition(this.getPosX(), y))
+				this.y = y;
 	}
 
 	public void setPosX(double x) 
 	{
-		this.x = x;
+		if (isValidPosition(x,this.getPosY()))
+			this.x = x;
 	}
 
 	public double getPosY() 
@@ -55,9 +67,9 @@ public class Projectile
 			return true;
 		if (worm.getPosX() == this.getPosX() || worm.getPosY() == this.getPosY())
 		{
-			if (currentWorm.getSelectedWeapon() == "Bazooka")
+			if (world.currentWorm().getSelectedWeapon() == "Bazooka")
 				worm.setHP(worm.getHP() - 80);
-			if (currentWorm.getSelectedWeapon() == "Rifle")
+			if (world.currentWorm().getSelectedWeapon() == "Rifle")
 				worm.setHP(worm.getHP() - 20);
 			return false;
 		}
@@ -72,7 +84,7 @@ public class Projectile
 	
 	public void shootRifle() 
 	{
-		Projectile projectile = new Projectile(currentWorm.getPosX() + 0.1, currentWorm.getPosY() + 0.1);
+		Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
 		projectile.setMass(10);
 		projectile.setForce(1.5);
 		Jump();
@@ -90,7 +102,7 @@ public class Projectile
 
 	public void shootBazooka(double propulsionYield) 
 	{
-		Projectile projectile = new Projectile(this.getRadius(), this.getRadius());
+		Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
 		projectile.setMass(300);
 		projectile.setForce(2.5 + 0.07*propulsionYield);
 		Jump();
@@ -147,8 +159,8 @@ public class Projectile
     public double JumpTime(double time)
     {
 	    this.setVelocity(this.getForce()/this.getMass()*0.5);
-	    this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*currentWorm.getAngle()) ) / g);
-	    time = this.getDistance() / (this.getVelocity() * Math.cos(currentWorm.getAngle())) ;
+	    this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*world.currentWorm().getAngle()) ) / g);
+	    time = this.getDistance() / (this.getVelocity() * Math.cos(world.currentWorm().getAngle())) ;
 	    this.setTime(time);
 	    return this.getTime();
 	}
@@ -205,13 +217,13 @@ public class Projectile
 	 */
     public double[] JumpStep(double DeltaT)
     {               		
-	        double velocityX = this.getVelocity() * Math.cos(currentWorm.getAngle());
-	        double velocityY = this.getVelocity() * Math.sin(currentWorm.getAngle());
+	        double velocityX = this.getVelocity() * Math.cos(world.currentWorm().getAngle());
+	        double velocityY = this.getVelocity() * Math.sin(world.currentWorm().getAngle());
 	        double x = this.getPosX() + (velocityX * DeltaT);
 	        double y = this.getPosY() + (velocityY * DeltaT - 0.5*g*Math.pow(DeltaT, 2));
 	        double jumpstep[] = new double[] {x,y};
 	        
-	        if (Util.fuzzyLessThanOrEqualTo(0, currentWorm.getAngle()) && (Util.fuzzyLessThanOrEqualTo(currentWorm.getAngle(), Math.PI)))
+	        if (Util.fuzzyLessThanOrEqualTo(0, world.currentWorm().getAngle()) && (Util.fuzzyLessThanOrEqualTo(world.currentWorm().getAngle(), Math.PI)))
 	        	return jumpstep;
 	        
 	        else 
@@ -231,10 +243,12 @@ public class Projectile
 	{
 		this.radius = worm.getRadius() + 0.1;
 	}
-
-	public World getWorld() 
+	
+	public boolean isValidPosition(double posX, double posY) throws IllegalArgumentException 
 	{
-		return world;
+	        if ((posX == Double.NEGATIVE_INFINITY) || (posY == Double.NEGATIVE_INFINITY) || (posX == Double.POSITIVE_INFINITY) || (posY == Double.POSITIVE_INFINITY))
+	        	throw new IllegalArgumentException("Not a valid value for position");
+	        return true;
 	}
 
 }

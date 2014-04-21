@@ -1,5 +1,9 @@
 package worms.model;
 
+//TODO: SHOOT DOESN'T WORK
+//TODO: ADJACENT EN IMPASSABLE NOT OK
+//TODO: MOVE IS IN AN INFINITE LOOP
+//TODO: MAYBE FALL DOESN'T
  
 /**
  * A class of worms involving a position consisting of an X- and Y-coordinate, an angle,
@@ -22,7 +26,8 @@ import be.kuleuven.cs.som.annotate.Model;
 import be.kuleuven.cs.som.annotate.Raw;
 import worms.util.Util;
  
-public class Worm {                    
+public class Worm 
+{                    
 	
 	
          /**
@@ -118,7 +123,11 @@ public class Worm {
          
 	     /**
 	      * Creates the worm with some initialization parameters.
-	     * @param x
+	      * 
+	      * @param world
+	      * 			creates the worm in a chosen world
+	      * 
+	      * @param x
 	      * 			creates the worm in a position on the X-axis of the world
 	      * 
 	      * @param y
@@ -159,8 +168,14 @@ public class Worm {
 	      * 
 	      * @post number of hitpoints is set to the maximum number of hitpoints a worm can have
 	      * 		| new.getHP() == this.getMaxHP()
+	      * 
+	      * @post team of this worm is set to the chosen team
+	      * 		| new.getTeam() == team
+	      * 
+	      * @post world of this worm is set to the chosen world
+	      * 		| new.getWorld()  == world
 	      */ 
-        public Worm(double x, double y, double radius, double angle, String name)
+        public Worm(World world, double x, double y, double radius, double angle, String name)
         {
                 this.setPosX(x);
                 this.setPosY(y);
@@ -169,7 +184,7 @@ public class Worm {
                 this.setName(name);
                 this.setCurrentAP(this.getMaxAP());
                 this.setHP(this.getMaxHP());
-                this.setTeam(team);
+                this.setWorld(world);
         }
         
         /**
@@ -222,11 +237,10 @@ public class Worm {
 		 * 		- If the cost of the movement is bigger than the current amount of AP
 		 * 			| calculateApCostMove(nbSteps) > this.getCurrentAP()
 		 */
-		public boolean isValidMovement() throws IllegalArgumentException
+	
+        public boolean isValidMovement() throws IllegalArgumentException
 		{
-            if (this.maxDistance(this.getAngle(), this.getRadius()) < 0)
-            	throw new IllegalArgumentException("Not a valid amount for distance");
-            if (calculateApCostMove(this.maxDistance(this.getAngle(), this.getRadius())) > this.getCurrentAP())
+            if (calculateApCostMove(1) > this.getCurrentAP())
             	throw new IllegalArgumentException("Not enough AP");
             return true;          
 		    }
@@ -328,12 +342,14 @@ public class Worm {
 		 * 			| posY == Double.NEGATIVE_INFINITY
 		 * 			| posX == Double.POSITIVE_INFINITY
 		 * 			| posY == Double.POSITIVE_INFINITY
+		 * 		If the position of the worm is impassable
+		 * 			| !world.isPassable(posX, posY, this.getRadius())
 		 */
 		public boolean isValidPosition(double posX, double posY) throws IllegalArgumentException 
 		{
 		        if ((posX == Double.NEGATIVE_INFINITY) || (posY == Double.NEGATIVE_INFINITY) || (posX == Double.POSITIVE_INFINITY) || (posY == Double.POSITIVE_INFINITY))
 		        	throw new IllegalArgumentException("Not a valid value for position");
-		            return true;
+		        return true;
 		}
 		   
 		    
@@ -419,27 +435,30 @@ public class Worm {
 	     * 
 	     * @post
 	     * 		We use the values of JumpStep and JumpTime to calculate the value of the new position the worm will be in and we drain all his AP
-	     * 		| new.getPosX() == newPosition[0]
-	     * 		| new.getPosY() == newPosition[1]
+	     * 			| new.getPosX() == newPosition[0]
+	     * 			| new.getPosY() == newPosition[1]
 	     */
         public void Jump() 
         {
         	if (this.canJump())
         	{	
-        		while (world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
-        		{
                 	double [] newPosition = this.JumpStep(this.JumpTime());
                 	this.setPosX(newPosition[0]);
                 	this.setPosY(newPosition[1]);
                 	this.setCurrentAP(0);
-        		}
         	}
-        	consume();
+        	
+        	for (int index = 0; index < world.fodder.size(); index++)
+        	{
+        		food = world.fodder.get(index);
+				if (this.getPosX() == food.getPosX() || this.getPosY() == food.getPosY())
+					consume();
+        	}
         }
         
         public boolean canJump()
         {
-        	if (this.getCurrentAP() > 0 && world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
+        	if (this.getCurrentAP() > 0)
         		return true;
         	return false;
         }
@@ -535,7 +554,7 @@ public class Worm {
         @Basic @Raw
 	    public int getMaxAP() 
         {
-	            return maxAP;
+	            return (int)Math.ceil(this.getMass());
 	    }
 		   
 		    
@@ -613,7 +632,7 @@ public class Worm {
 		@Basic @Raw
 	    public double getMass() 
 		{
-	       return mass;
+	       return density*(4/3)*Math.PI*Math.pow(getRadius(), 3);
 		}
 		  
 		   
@@ -860,100 +879,269 @@ public class Worm {
  * 									   PART 2 ADDITIONS									     *
  * 																						     *       
  *********************************************************************************************/
-                        
+        /*
+         * The current amount of HP a worm has
+         */
 		public int currentHP;
+		
+		/*
+		 * A boolean that indicates whether the object is inside of the world boundaries
+		 */
 		public boolean outOfBounds = false;
+		
+		/*
+		 * The list of weapons a worm has (now only a Bazooka and a Rifle)
+		 */
 		public List<String> weapons = Arrays.asList("Bazooka", "Rifle");
+		
+		/*
+		 * The selected weapon of this worm (starting at Bazooka and cycling)
+		 */
 		public String selectedWeapon = "Bazooka";
+		
+		/*
+		 * The world this worm is in
+		 */
 		public World world;
+		
+		/*
+		 * The team this worm is in
+		 */
 		public Team team;
-		public int index = 0;
+		
+		/*
+		 * The projectile this worm is shooting
+		 */
 		public Projectile projectile;
+		
+		/*
+		 * The food this worm can eat
+		 */
 		private Food food;
 
-		
-		public void setSelectedWeapon(String selectedweapon)
+		/*
+		 * The index to determine which weapon is selected
+		 */
+		private int index = 0;
+
+		/**
+		 * This method sets the value for the selected weapon of a worm
+		 * 
+		 * @param selectedWeapon
+		 * 		the selected weapon of this worm 
+		 * 
+		 * @post
+		 * 		Sets the value of selected weapon to the starting value
+		 * 		| new.getSelectedWeapon() == selectedWeapon
+		 */
+		@Model @Basic
+		public void setSelectedWeapon()
 		{
-			this.selectedWeapon = selectedweapon;
+			this.selectedWeapon = weapons.get(index);
 		}
 		
+		
+		/*
+		 * This method recalls the value of selectedWeapon
+		 */
+		@Basic @Raw
 		public String getSelectedWeapon() 
 		{
-			
 			return selectedWeapon;
 		}
 		
+		/*
+		 * This method recalls the value of MaxHP
+		 *   | MaxHP == (int) Math.ceil(this.getMass())
+		 */
+		@Basic @Raw
 		public int getMaxHP() 
 		{
 		    return (int)Math.ceil(this.getMass());
 		}
 		
+		/*
+		 * This method recalls the value of currentHP
+		 */
+		@Basic @Raw
 		public int getHP() 
 		{
 			return currentHP;
 		}
 		
+		/**
+		 * Method to inspect whether the worm is still alive
+		 * 
+		 * @return
+		 * 		true if the value of currentHP is a valid one and the worm is in the world boundaries
+		 */
 		public boolean isAlive() 
 		{
-			return (isValidHP(this.getHP()) && world.wormInBounds(this) && outOfBounds);
+			return (isValidHP(this.getHP()) && this.getWorld().wormInBounds(this));
 		}
 		
+		/**
+		 * This method sets the value for the HP of a worm
+		 * 
+		 * @param HP
+		 * 		the HP of this worm 
+		 * 
+		 * @post
+		 * 		Sets the value of currentHP to the value of HP if isValidHP(HP) returns true
+		 * 			| if (isValidHP(HP) == true
+		 * 				| new.getHP() == HP
+		 */
+		@Basic @Model
 		public void setHP(int HP) 
 		{
 			if (isValidHP(HP))
 				this.currentHP = HP;
 		}
 		
-		public boolean isValidHP(int hp)
+		/**
+		 * Method to inspect whether the amount of current HP is a valid amount
+		 * 
+		 * @param hp
+		 * 		The current amount of hp of the worm
+		 * 
+		 * @return
+		 * 		true if the value of currentAP is a valid one
+		 * 
+		 * @throws IllegalArgumentException
+		 * 		If the amount of hp is smaller than zero and bigger than the maximum amount of AP possible
+		 * 			| currentAP < 0 
+		 * 			| currentAP > this.getMaxHP()
+		 */
+		public boolean isValidHP(int hp) throws IllegalArgumentException
 		{
-			if (hp < 0 || hp >= Double.POSITIVE_INFINITY)
-				return false;
+			if (hp < 0)
+				this.setHP(0);
+			if (hp > this.getMaxHP())
+				this.setHP(this.getMaxHP());
 			return true;
 		}
 
+		/*
+		 * This method returns the world this worm is in
+		 */
+		@Basic @Raw 
 		public World getWorld() 
 		{
 			return world;
 		}
 
+		/*
+		 * This method returns the team this worm is in
+		 */
+		@Basic @Raw
 		public Team getTeam() 
 		{
 			return team;
 		}
 		
+		/**
+		 * This method sets the world of a worm
+		 * 
+		 * @param world
+		 * 		the world of this worm 
+		 * 
+		 * @post
+		 * 		Sets the world of a worm to this world
+		 * 			| new.getWorld() == world
+		 */
+		@Basic @Model
 		public void setWorld(World world)
 		{
 			this.world = world;
 		}
 		
+		/**
+		 * This method sets the team of a worm
+		 * 
+		 * @param team
+		 * 		the team of this worm 
+		 * 
+		 * @post
+		 * 		Sets the team of a worm to this team
+		 * 			| new.getTeam() == team
+		 */
 		public void setTeam(Team team)
 		{
 			this.team = team;
 		}
 
+		/*
+		 * This method selects the next weapon by increasing the index-number of the ArrayList weapons
+		 * 
+		 * if the index surpasses the amount of possible weapons, it gets set to 0
+		 * 		| index > weapons.size()
+		 * if the index falls below zero (should be impossible), it gets set to 0
+		 * 		| index < 0
+		 */
 		public void selectNextWeapon() 
 		{
-			weapons.get(index ++);		
+			if (index == weapons.size() - 1)
+				index = 0;
+			else if (index < 0)
+				index = 0;
+			else
+				weapons.get(index ++);		
 		}
 
+		/*
+		 * This method shoots a projectile with a certain propulsion yield
+		 * 
+		 * @param propulsionYield
+		 * 		The propulsion yield a weapon is shot with
+		 * 
+		 * First we determine what the selected weapon is:
+		 * 		- Bazooka:
+		 * 			@post
+		 * 				Sets the amount of AP to currentAP - 50
+		 * 					| new.getCurrentAP() == getCurrentAP() - 50
+		 * 
+		 * 			@effect
+		 * 				shootBazooka(propulsionYield) in class projectile
+		 * 
+		 * 		- Rifle
+		 * 			@post
+		 * 				Sets the amount of AP to currentAP - 10
+		 * 					| new.getCurrentAP() == getCurrentAP() - 10
+		 * 	
+		 * 			@effect
+		 * 				shootRifle() in class projectile
+		 */
 		public void shoot(int propulsionYield) 
 		{
 			if (this.canShoot())
 			{
 				if (this.getSelectedWeapon() == "Bazooka")
 				{
+					Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
 					projectile.shootBazooka(propulsionYield);
 					this.setCurrentAP(getCurrentAP() - 50);
 				}
 				
 				if (this.getSelectedWeapon() == "Rifle")
 				{
+					Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
 					projectile.shootRifle();
 					this.setCurrentAP(getCurrentAP() - 10);
 				}
 			}
 		}
 		
+		/*
+		 * This method starts the next turn and the worm regains all his AP and 10 HP
+		 * 
+		 * @post
+		 * 		The worm regains 10 HP
+		 * 			| new.getHP() == getHP() + 10
+		 * 
+		 * @post
+		 * 		The worm regains all his AP
+		 * 			| new.getCurrentAP() == getMaxAP()
+		 */
 		public void nextTurn()
 		{
 			if (world.currentWorm() != this)
@@ -961,83 +1149,51 @@ public class Worm {
 				this.setCurrentAP(getMaxAP());
 		}
 
-		public void setMass(double mass) 
-		{
-			this.mass = density*(4/3)*Math.PI*Math.pow(getRadius(), 3);
-		}
+		
 
-		public void setMaxAP(int maxAP) 
-		{
-			this.maxAP = (int)Math.ceil(this.getMass());
-		}
-
+		/*
+		 * this method determines whether the worm can shoot or not
+		 * 
+		 * @return
+		 * 		true when the worm is positioned on a passable location 
+		 * 			| world.isPassable(this.getPosX(), this.getPosY(), this.getRadius())
+		 * 		
+		 *		We then make a difference between the selected weapons
+		 *			- Bazooka:
+		 *				true when the selected weapon is a bazooka and the worm has more than 50 AP left
+		 *					| this.getSelectedWeapon() == "Bazooka"
+		 *					| this.getCurrentAP() >= 50
+		 *
+		 *			- Rifle:
+		 *				true when the selected weapon is a rifle and the worm has more than 10 AP left
+		 *					| this.getSelectedWeapon() == "Rifle"
+		 *					| this.getCurrentAP() >= 10
+		 */
 		public boolean canShoot()
 		{
-			if (world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
-			{
 				if (this.getSelectedWeapon() == "Bazooka" && this.getCurrentAP() >= 50)
 					return true;
 				if (this.getSelectedWeapon() == "Rifle" && this.getCurrentAP() >= 10)
 					return true;
 				return false;
-			}	
-			return false;
 		}
 		
-
+		/*
+		 * This method consumes food when the worm collides with it, making the worm grow 10%
+		 * 
+		 * @post 
+		 * 	  The worm grows 10% if his position collides with the position of the food
+		 * 	  We also give eaten in the class food the value of true
+		 * 		| new.getRadius() == this.getRadius()*1.1
+		 * 		| new.food.eaten == true
+		 */
 		private void consume() 
 		{
-			if (this.getPosX() == food.getPosX() || this.getPosY() == food.getPosY())
-			{
 				this.setRadius(this.getRadius()*1.1);
 				food.eaten = true;
-			}
-			
 		}
 
-		public void fall() 
-		{
-			if (canFall()) 
-			{
-				double fallTime = fallTime();
-				if (fallTime == Double.MAX_VALUE) 
-				{
-					outOfBounds = true;
-				} 
-				else 
-				{
-					double fallDistance = Math.abs(getPosY() - fallDistance(fallTime));
-					this.setHP((int)Math.floor(fallDistance) * 3);
-					setPosY(getPosY() - fallDistance);
-				}
-			}
-		}
 
-		
-		public double fallDistance(double time) 
-		{
-			 return ((1/2) * g * time * time);
-		}
-
-		public double fallTime() 
-		{
-			double timeStep = 0.01;
-			double time = 0.0;
-			while (true) 
-			{
-				double target = getPosY() - fallDistance(time);
-				if (!isValidPosition(getPosX(), target))
-					return Double.MAX_VALUE;
-				if (!isValidPosition(getPosX(), target) || world.isAdjacent(getPosX(), target, getRadius()))
-					return time;
-				time += timeStep;
-			}
-		}
-
-		public boolean canFall() 
-		{
-			return !world.isAdjacent(this.getPosX(), this.getPosY(), getRadius());
-		}
 		
 		public void destroy()
 		{
@@ -1045,73 +1201,45 @@ public class Worm {
 				world.removeWorm(this);
 		}
 
+
 		
-		public void move() throws IllegalArgumentException 
+		public void addToTeam(Team team) throws IllegalArgumentException
 		{
-			if (this.isValidMovement()) {
-				double deltaTime = 0.0175; 
-				double minDistance = 0.1;
-				double[] temp = new double[]{0.0, this.getAngle()}; 
-				for (double counter = 0.0; counter < 0.7875; counter += deltaTime)
-				{
-					double maxDistanceClockwise = maxDistance(this.getAngle() + counter, minDistance);
-					if (maxDistanceClockwise == getRadius()) 
-					{
-						temp = new double[] {getRadius(), this.getAngle() + counter };
-						break;
-					} 
-					
-					else 
-					{
-						if (maxDistanceClockwise > temp[0]) 
-						{
-							temp = new double[] {maxDistanceClockwise, this.getAngle() + counter };
-							minDistance = maxDistanceClockwise;
-						}
-					}
-					
-					double maxDistanceCounterClockwise = maxDistance(this.getAngle() - counter, minDistance);
-					if (maxDistanceCounterClockwise == getRadius()) 
-					{
-						temp = new double[] {getRadius(), this.getAngle() - counter };
-						break;
-					} 
-					
-					else 
-					{
-						if (maxDistanceCounterClockwise > temp[0])
-						{
-							temp = new double[] {maxDistanceCounterClockwise, this.getAngle() - counter };
-							minDistance = maxDistanceCounterClockwise;
-						}
-					}
-				}
-				
-				setPosX(getPosX() + Math.cos(temp[1]) * temp[0]);
-				setPosY(getPosY() + Math.sin(temp[1]) * temp[0]);
-				if (!isValidPosition(this.getPosX(), this.getPosY()))
-					outOfBounds = true;
-				fall();
-				consume();
-			} 
-			
-			else 
-				throw new IllegalArgumentException("Can't move that far");
+			team.addWorm(this);
 		}
-		
-		
-		public double maxDistance(double angle, double minDistance)
+ 
+		public boolean canMove() 
 		{
-			double delta = 0.001;
-			for (double distance = this.getRadius(); distance > minDistance; distance -= delta)
+			if (this.calculateApCostMove(distance) > this.getCurrentAP())
+				return false;
+			return world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !(this.calculateApCostMove(distance) > this.getCurrentAP());
+		}
+
+		public boolean canFall() 
+		{
+			return world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !world.isAdjacent(this.getPosX(), this.getPosY(), this.getRadius());
+		}
+
+		public void fall() 
+		{
+			while (this.canFall())
 			{
-				double X = this.getPosX() + Math.cos(angle)*distance;
-				double Y = this.getPosY() + Math.sin(angle)*distance;
-					if (world.isAdjacent(X, Y, this.getRadius()))
-						return distance;
+				{
+					this.setPosY(this.getPosY() - 0.1*this.getRadius());
+				}
 			}
-			return 0;
-		}		
-		
+			// TODO Auto-generated method stub
+			
+		}
+
+		public void move() 
+		{
+			if (this.canMove())
+			{
+				
+			}
+			// TODO Auto-generated method stub
+			
+		}
 }
                                

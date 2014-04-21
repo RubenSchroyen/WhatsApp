@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-//TODO: Adjacent 
-//TODO: bug where worms won't spawn (because of 'not being in world')
 
 public class World 
 {
@@ -17,12 +15,10 @@ public class World
 	public List<Food> fodder = new ArrayList<Food>();
 	public List<Projectile> projectiles = new ArrayList<Projectile>();
 	public List<Team> teams = new ArrayList<Team>();
-	Projectile projectile;
-	Worm worm;
-	Food food;
-	private int index;
+	private int index = 0;
 	private double cellWidth;
 	private double cellHeight;
+
 	
 	public World(double worldHeight, double worldWidth, boolean[][] passableMap, Random random) 
 	{
@@ -30,7 +26,6 @@ public class World
 		fodder = new ArrayList<Food>();
 		projectiles = new ArrayList<Projectile>();
 		teams = new ArrayList<Team>();
-		this.projectiles = null;
 		this.worldHeight = worldHeight;
 		this.worldWidth = worldWidth;
 		this.setPassableMap(passableMap);
@@ -40,13 +35,18 @@ public class World
 	
 	public Worm currentWorm()
 	{
-		return worms.get(this.getIndex());
+		Worm worm = worms.get(this.getIndex());
+		if (worm.getCurrentAP() == 0)
+			this.nextWorm();
+		return worm;
 	}
 	
 	public void nextWorm()
 	{
-		this.setIndex(this.getIndex() + 1);
-		this.worm = currentWorm();
+		if (this.getIndex() == worms.size() - 1)
+			this.setIndex(0);
+		else
+			this.setIndex(this.getIndex() + 1);
 	}
 	
 	public int getIndex()
@@ -112,6 +112,7 @@ public class World
 			return true;
 		return false;
 	}
+	
 	public boolean wormExists(Worm worm)
 	{
 		return (worm != null);
@@ -122,10 +123,13 @@ public class World
 		return worms.contains(worm);
 	}
 	
-	public void addWorm(Worm worm) throws IllegalArgumentException
+	public void addWorm() throws IllegalArgumentException
 	{
+		Worm worm = new Worm(this, Math.random() * (this.getWorldWidth() + 1), Math.random() * (this.getWorldHeight() + 1), Math.random()*(0.75 + 0.25), Math.random()*2*Math.PI, "Eric");
+		worm.setHP(worm.getMaxHP());
+        worm.setCurrentAP(worm.getMaxAP());
 		assert (wormExists(worm)) && (worm.getWorld() == this);
-		assert !wormInWorld(worm);
+		assert (!wormInWorld(worm));
 		worms.add(worm);
 	}
 	
@@ -146,8 +150,9 @@ public class World
 		return fodder.contains(food);
 	}
 	
-	public void addFood(Food food) throws IllegalArgumentException
+	public void addFood() throws IllegalArgumentException
 	{
+		Food food = new Food(this, Math.random() * (this.getWorldWidth() + 1), Math.random() * (this.getWorldHeight() + 1));
 		assert (foodExists(food)) && (food.getWorld() == null);
 		assert (!foodInWorld(food));
 		fodder.add(food);
@@ -209,31 +214,7 @@ public class World
 		teams.remove(team);
 	}
 	
-	public boolean isPassable(double x, double y, double radius) 
-	{
-		boolean impassable = true;
-		if (getPassableMap(x + radius, y + radius) != null)
-			impassable = false;;
-		if (getPassableMap(x + radius, y - radius) != null)
-			impassable = false;
-		if (getPassableMap(x - radius, y + radius) != null)
-			impassable =  false;
-		if (getPassableMap(x - radius, y - radius) != null)
-			impassable = false;
-		return impassable;
-	}
 
-
-	public boolean isAdjacent(double x, double y, double radius) 
-	{
-		double newRadius = radius * 0.1;
-		return ( !isPassable(x, y, 0) && isPassable(x, y, newRadius) );
-	}
-
-	public boolean getNextCell(double x, double y) 
-	{
-		return passableMap[passableMap.length - (int) y][(int) x];
-	}
 	
 	public boolean wormInBounds(Worm worm)
 	{
@@ -266,7 +247,8 @@ public class World
 	
 	public void setWorldHeight(double worldHeight) 
 	{
-		this.worldHeight = worldHeight;
+		if (isValidDimensions(this.getWorldWidth(), worldHeight))
+			this.worldHeight = worldHeight;
 	}
 	
 	public double getWorldWidth() 
@@ -276,10 +258,11 @@ public class World
 	
 	public void setWorldWidth(double worldWidth) 
 	{
-		this.worldWidth = worldWidth;
+		if (isValidDimensions(worldWidth, this.getWorldHeight()))
+			this.worldWidth = worldWidth;
 	}
 
-	public boolean[][] getPassableMap(double x, double y) 
+	public boolean[][] getPassableMap() 
 	{
 		return passableMap;
 	}
@@ -300,6 +283,53 @@ public class World
 	public double getCellHeight() 
 	{
 		return this.cellHeight;
+	}
+	
+	public boolean isValidDimensions(double width, double height) throws IllegalArgumentException
+	{
+		if (width < 0 || width > Double.MAX_VALUE )
+			throw new IllegalArgumentException("Not a valid dimension for World");
+		if (height < 0 || height > Double.MAX_VALUE)
+			throw new IllegalArgumentException("Not a valid dimension for World");
+		return true;
+	}
+
+	public boolean isPassable(double randomizedX, double randomizedY, double testRadius) 
+	{
+		boolean passable = false;
+		for (double percentage = 0; percentage < 1.01; percentage += 0.01)
+		{
+			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY + percentage*testRadius)])
+				passable = true;
+			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY - percentage*testRadius)])
+				passable = true;
+			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY + percentage*testRadius)])
+				passable = true;
+			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY - percentage*testRadius)])
+				passable = true;
+		}
+		return passable;
+	}
+
+	public boolean isAdjacent(double randomizedX, double randomizedY, double testRadius) 
+	{
+		boolean adjacent = false;
+		for (double percentage = 0; percentage < 1.01; percentage += 0.01)
+		{
+			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY + percentage*testRadius)]
+				&& (!this.getPassableMap()[(int) (randomizedX + percentage*1.1*testRadius)][(int) (randomizedY + percentage*1.1*testRadius)]))
+				adjacent = true;
+			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY - percentage*testRadius)]
+				&& (!this.getPassableMap()[(int) (randomizedX + percentage*1.1*testRadius)][(int) (randomizedY - percentage*1.1*testRadius)]))
+				adjacent = true;
+			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY + percentage*testRadius)]
+					&& (!this.getPassableMap()[(int) (randomizedX - percentage*1.1*testRadius)][(int) (randomizedY + percentage*1.1*testRadius)]))
+				adjacent = true;
+			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY - percentage*testRadius)]
+					&& (!this.getPassableMap()[(int) (randomizedX - percentage*1.1*testRadius)][(int) (randomizedY - percentage*1.1*testRadius)]))
+				adjacent = true;
+		}
+		return adjacent;
 	}
 
 }
