@@ -1,5 +1,7 @@
 package worms.model;
 
+import java.util.ArrayList;
+
 import worms.util.Util;
 
 public class Projectile 
@@ -17,11 +19,17 @@ public class Projectile
 	private double distance;
 	private double velocity;
 	
-	public Projectile(World world, double x, double y) 
+	public Projectile(Worm worm) throws IllegalArgumentException
 	{
-		this.setPosX(x);
-		this.setPosY(y);
-		this.setWorld(world);
+		if (worm.isValidPosition(worm.getPosX() + Math.cos(worm.getAngle() * worm.getRadius()), worm.getPosY() + Math.sin(worm.getAngle() * worm.getRadius())))
+		{	
+			this.setPosX(worm.getPosX() + Math.cos(worm.getAngle() * worm.getRadius()));
+			this.setPosY(worm.getPosY() + Math.sin(worm.getAngle() * worm.getRadius()));
+		}
+		else throw new IllegalArgumentException("Not a valid position for projectile");
+		this.worm = worm;
+		this.setWorld(worm.getWorld());
+		
 	}
 
 	public void setWorld(World world) 
@@ -58,33 +66,53 @@ public class Projectile
 
 	public double getRadius() 
 	{
-		return radius;
+		return Math.pow(this.getMass()/(density*(4.0/3.0)*Math.PI), 1.0/3.0);
 	}
 
 	public boolean isActive() 
 	{
-		if (world.projectileInBounds(this) && world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
+		if (this.getWorld().projectileInBounds(this) && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
 			return true;
-		if (worm.getPosX() == this.getPosX() || worm.getPosY() == this.getPosY())
-		{
-			if (world.currentWorm().getSelectedWeapon() == "Bazooka")
-				worm.setHP(worm.getHP() - 80);
-			if (world.currentWorm().getSelectedWeapon() == "Rifle")
-				worm.setHP(worm.getHP() - 20);
-			return false;
-		}
+		lookForWorms();
 		return false;
 	}
 
+	public void lookForWorms()
+	{
+		if (this.getWorld() != null) 
+		{
+			ArrayList<Worm> worms = new ArrayList<Worm>(getWorld().getWorms());
+			for (Worm worm : worms ) 
+			{
+				if (World.isOverlapping(this.getPosX(), this.getPosY(), this.getRadius(), worm.getPosX(), worm.getPosY(), worm.getRadius())) 
+					damage(worm, damageWeapon());
+			}
+		}
+	}
+	
+	public int damageWeapon()
+	{
+		if (this.getWorld().currentWorm().getSelectedWeapon() == "Bazooka")
+			return 80;
+		if (this.getWorld().currentWorm().getSelectedWeapon() == "Rifle")
+			return 20;
+		return 0;
+	}
+	
+	public void damage(Worm worm, int damage)
+	{
+		worm.setHP(worm.getHP() - damage);
+	}
+	
 	public void destroy()
 	{
 		if (!isActive())
-			world.removeProjectile(this);
+			this.getWorld().removeProjectile(this);
 	}
 	
-	public void shootRifle() 
+	public void shootRifle(Projectile projectile) 
 	{
-		Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
+		this.getWorld().addProjectile(projectile);
 		projectile.setMass(10);
 		projectile.setForce(1.5);
 		Jump();
@@ -100,9 +128,9 @@ public class Projectile
 		return mass;
 	}
 
-	public void shootBazooka(double propulsionYield) 
+	public void shootBazooka(double propulsionYield, Projectile projectile) 
 	{
-		Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
+		this.getWorld().addProjectile(projectile);
 		projectile.setMass(300);
 		projectile.setForce(2.5 + 0.07*propulsionYield);
 		Jump();
@@ -128,7 +156,7 @@ public class Projectile
      */
     public void Jump() 
     {       
-    	while (world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
+    	while (this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
     	{
             double [] newPosition = this.JumpStep(this.JumpTime(this.getTime()));
             this.setPosX(newPosition[0]);
@@ -159,8 +187,8 @@ public class Projectile
     public double JumpTime(double time)
     {
 	    this.setVelocity(this.getForce()/this.getMass()*0.5);
-	    this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*world.currentWorm().getAngle()) ) / g);
-	    time = this.getDistance() / (this.getVelocity() * Math.cos(world.currentWorm().getAngle())) ;
+	    this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*this.getWorld().currentWorm().getAngle()) ) / g);
+	    time = this.getDistance() / (this.getVelocity() * Math.cos(this.getWorld().currentWorm().getAngle())) ;
 	    this.setTime(time);
 	    return this.getTime();
 	}
@@ -217,13 +245,13 @@ public class Projectile
 	 */
     public double[] JumpStep(double DeltaT)
     {               		
-	        double velocityX = this.getVelocity() * Math.cos(world.currentWorm().getAngle());
-	        double velocityY = this.getVelocity() * Math.sin(world.currentWorm().getAngle());
+	        double velocityX = this.getVelocity() * Math.cos(this.getWorld().currentWorm().getAngle());
+	        double velocityY = this.getVelocity() * Math.sin(this.getWorld().currentWorm().getAngle());
 	        double x = this.getPosX() + (velocityX * DeltaT);
 	        double y = this.getPosY() + (velocityY * DeltaT - 0.5*g*Math.pow(DeltaT, 2));
 	        double jumpstep[] = new double[] {x,y};
 	        
-	        if (Util.fuzzyLessThanOrEqualTo(0, world.currentWorm().getAngle()) && (Util.fuzzyLessThanOrEqualTo(world.currentWorm().getAngle(), Math.PI)))
+	        if (Util.fuzzyLessThanOrEqualTo(0, this.getWorld().currentWorm().getAngle()) && (Util.fuzzyLessThanOrEqualTo(this.getWorld().currentWorm().getAngle(), Math.PI)))
 	        	return jumpstep;
 	        
 	        else 
@@ -241,7 +269,7 @@ public class Projectile
 
 	public void setRadius(double radius) 
 	{
-		this.radius = worm.getRadius() + 0.1;
+		this.radius = this.getWorld().currentWorm().getRadius() + 0.1;
 	}
 	
 	public boolean isValidPosition(double posX, double posY) throws IllegalArgumentException 

@@ -13,19 +13,19 @@ public class TestWorm {
        
         @Before
         public void setUpWorms(){
-                testWorm1 = new Worm(1.0,1.0,1,Math.PI+1,"EersteWorm");
-                testWorm2 = new Worm(1.0,1.0,1,0,"TweedeWorm");
+                testWorm1 = new Worm(null, 1.0,1.0,1,Math.PI+1,"EersteWorm");
+                testWorm2 = new Worm(null, 1.0,1.0,1,0,"TweedeWorm");
         }
        
         @Test
         public void testInspectMovementTrue() {
-                assertEquals(true, testWorm1.isValidMovement(1));
+                assertEquals(true, testWorm1.canMove());
         }
        
         @Test
         public void testInspectMovementFalse() {
                 testWorm1.setCurrentAP(0);
-                assertEquals(false, testWorm1.isValidMovement(0));
+                assertEquals(false, testWorm1.canMove());
         }
        
         @Test
@@ -115,7 +115,7 @@ public class TestWorm {
         @Test
         public void testMoveTrue(){
                 testWorm1.setAngle(Math.PI/4);
-                testWorm1.Move(1);
+                testWorm1.move();
                
                 assertEquals(  testWorm1.getPosX()  ,  ( 1 * Math.cos(Math.PI/4 ) + 1 ) , worms.util.Util.DEFAULT_EPSILON   );
                 assertEquals(  testWorm1.getPosY()  ,  ( 1 * Math.sin(Math.PI/4 ) + 1 ) , worms.util.Util.DEFAULT_EPSILON   );
@@ -124,7 +124,7 @@ public class TestWorm {
         @Test (expected = IllegalArgumentException.class)
         public void testMoveFalse(){
                 testWorm1.setCurrentAP(0);
-                testWorm1.Move(1);     
+                testWorm1.move();     
         }
        
         @Test

@@ -16,11 +16,9 @@ public class World
 	public List<Projectile> projectiles = new ArrayList<Projectile>();
 	public List<Team> teams = new ArrayList<Team>();
 	private int index = 0;
-	private double cellWidth;
-	private double cellHeight;
 
 	
-	public World(double worldHeight, double worldWidth, boolean[][] passableMap, Random random) 
+	public World(double worldWidth, double worldHeight, boolean[][] passableMap, Random random) 
 	{
 		worms = new ArrayList<Worm>();
 		fodder = new ArrayList<Food>();
@@ -29,8 +27,6 @@ public class World
 		this.worldHeight = worldHeight;
 		this.worldWidth = worldWidth;
 		this.setPassableMap(passableMap);
-		this.cellWidth = (worldWidth / (passableMap[0].length + 1));
-		this.cellHeight = (worldHeight / (passableMap.length + 1));
 	}
 	
 	public Worm currentWorm()
@@ -43,10 +39,7 @@ public class World
 	
 	public void nextWorm()
 	{
-		if (this.getIndex() == worms.size() - 1)
-			this.setIndex(0);
-		else
-			this.setIndex(this.getIndex() + 1);
+		this.setIndex(this.getIndex() + 1);
 	}
 	
 	public int getIndex()
@@ -56,7 +49,10 @@ public class World
 	
 	public void setIndex(int index)
 	{
-		this.index = index;
+		if (index > worms.size() - 1)
+			this.index = 0;
+		else
+			this.index = index;
 	}
 	
 	public List<Worm> getWorms()
@@ -125,12 +121,15 @@ public class World
 	
 	public void addWorm() throws IllegalArgumentException
 	{
-		Worm worm = new Worm(this, Math.random() * (this.getWorldWidth() + 1), Math.random() * (this.getWorldHeight() + 1), Math.random()*(0.75 + 0.25), Math.random()*2*Math.PI, "Eric");
-		worm.setHP(worm.getMaxHP());
-        worm.setCurrentAP(worm.getMaxAP());
+		double randomPositionX = Math.random() * this.getWorldWidth();
+		double randomPositionY = Math.random() * this.getWorldHeight();
+		double randomAngle = Math.random() * 2 * Math.PI;
+		
+		Worm worm = new Worm(this, randomPositionX, randomPositionY, 0.25, randomAngle, "Eric");
 		assert (wormExists(worm)) && (worm.getWorld() == this);
 		assert (!wormInWorld(worm));
-		worms.add(worm);
+		if (!wormInBounds(worm) || !isAdjacent(worm.getPosX(), worm.getPosY(), worm.getRadius()) || !isPassable(worm.getPosX(), worm.getPosY(), worm.getRadius()))
+			worms.add(worm);
 	}
 	
 	public void removeWorm(Worm worm) throws IllegalArgumentException
@@ -275,16 +274,6 @@ public class World
 		this.passableMap = map;
 	}
 	
-	public double getCellWidth() 
-	{
-		return this.cellWidth;
-	}
-
-	public double getCellHeight() 
-	{
-		return this.cellHeight;
-	}
-	
 	public boolean isValidDimensions(double width, double height) throws IllegalArgumentException
 	{
 		if (width < 0 || width > Double.MAX_VALUE )
@@ -293,43 +282,121 @@ public class World
 			throw new IllegalArgumentException("Not a valid dimension for World");
 		return true;
 	}
-
-	public boolean isPassable(double randomizedX, double randomizedY, double testRadius) 
+	
+	public int getPixelsX() 
 	{
-		boolean passable = false;
-		for (double percentage = 0; percentage < 1.01; percentage += 0.01)
-		{
-			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY + percentage*testRadius)])
-				passable = true;
-			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY - percentage*testRadius)])
-				passable = true;
-			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY + percentage*testRadius)])
-				passable = true;
-			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY - percentage*testRadius)])
-				passable = true;
-		}
-		return passable;
+		return this.getPassableMap()[0].length;
 	}
 
-	public boolean isAdjacent(double randomizedX, double randomizedY, double testRadius) 
+	public int getPixelsY() 
 	{
-		boolean adjacent = false;
-		for (double percentage = 0; percentage < 1.01; percentage += 0.01)
-		{
-			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY + percentage*testRadius)]
-				&& (!this.getPassableMap()[(int) (randomizedX + percentage*1.1*testRadius)][(int) (randomizedY + percentage*1.1*testRadius)]))
-				adjacent = true;
-			if (this.getPassableMap()[(int) (randomizedX + percentage*testRadius)][(int) (randomizedY - percentage*testRadius)]
-				&& (!this.getPassableMap()[(int) (randomizedX + percentage*1.1*testRadius)][(int) (randomizedY - percentage*1.1*testRadius)]))
-				adjacent = true;
-			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY + percentage*testRadius)]
-					&& (!this.getPassableMap()[(int) (randomizedX - percentage*1.1*testRadius)][(int) (randomizedY + percentage*1.1*testRadius)]))
-				adjacent = true;
-			if (this.getPassableMap()[(int) (randomizedX - percentage*testRadius)][(int) (randomizedY - percentage*testRadius)]
-					&& (!this.getPassableMap()[(int) (randomizedX - percentage*1.1*testRadius)][(int) (randomizedY - percentage*1.1*testRadius)]))
-				adjacent = true;
-		}
-		return adjacent;
+		return this.getPassableMap().length;
 	}
 
+	public double getResolutionX() 
+	{
+		return (this.getWorldWidth() / ((double) this.getPixelsX()));
+	}
+
+
+	public double getResolutionY() 
+	{
+		return (this.getWorldHeight() / ((double) getPixelsY()));
+	}
+	
+	private int[] positionToPixel(double x, double y) throws IllegalArgumentException 
+	{
+		if (!isWithinBoundaries(x,y))
+			throw new IllegalArgumentException("Not within the boundaries of this world");
+		int pixelX = (int) Math.round(x * ((double) this.getPixelsX()-1 ) / this.getWorldWidth());
+		int pixelY = (this.getPixelsY()-1) - (int) Math.round(y * ((double) this.getPixelsY()  -1 ) / this.getWorldHeight());
+		
+		int[] pixelPosition = new int[2];
+		pixelPosition[0] = pixelX;
+		pixelPosition[1] = pixelY;
+		
+		return pixelPosition;
+	}
+
+	
+	public boolean isWithinBoundaries(double x, double y) 
+	{
+		if (x < (double) 0 || x > this.getWorldWidth() || y < (double) 0 || y > this.getWorldHeight())
+			return false;
+		return true;
+	}
+
+	private boolean isPassablePixel(int pixelX, int pixelY) 
+	{
+		return this.getPassableMap()[pixelY][pixelX];
+	}
+
+	
+	private boolean isPassablePosition(double x, double y) 
+	{
+		if (!isWithinBoundaries(x,y))
+			return false;
+		
+		int[] pixel = positionToPixel(x,y);
+		return isPassablePixel(pixel[0],pixel[1]);
+	}
+
+	public boolean isPassable(double x, double y, double radius) 
+	{ 
+		if (!isPassablePosition(x, y))
+			return false;
+
+		int amountOfPixelsX = (int) Math.ceil(0.1*radius / this.getResolutionX());
+		int amountOfPixelsY = (int) Math.ceil(0.1*radius / this.getResolutionY());
+
+		double testX = 0;
+		double testY = 0;
+		for (int pixelX = 0; pixelX < amountOfPixelsX; pixelX++) 
+		{
+			for (int pixelY = 0; pixelY < amountOfPixelsY; pixelY++) 
+			{
+				testX = pixelX * this.getResolutionX();
+				testY = pixelY * this.getResolutionY();
+				if (Math.sqrt(Math.pow(testX,2) + Math.pow(testY,2)) <= 0.1*radius) 
+				{
+					if (!isPassablePosition(x + testX, y + testY))
+						return false;
+					if (!isPassablePosition(x - testX, y + testY))
+						return false;
+					if (!isPassablePosition(x + testX, y - testY))
+						return false;
+					if (!isPassablePosition(x - testX, y - testY))
+						return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	public boolean isAdjacent(double x, double y, double radius) 
+	{
+		if (!isPassable(x,y,radius))
+			return false;
+		
+		for (double testAngle = 0; testAngle < 2*Math.PI; testAngle += 2*Math.PI/40) 
+		{
+			double deltaX = (0.1*radius + this.getResolutionX()) * Math.cos(testAngle);
+			double deltaY = (0.1*radius + this.getResolutionY()) * Math.sin(testAngle);
+
+			if (isWithinBoundaries(x + deltaX, y + deltaY) && !isPassablePosition(x + deltaX, y + deltaY)) 
+				return true;
+		}
+		return false;
+	}
+	
+	public static boolean isOverlapping(double X, double Y, double radius, double x, double y, double Radius) 
+	{
+		double deltaX = x - X;
+		double deltaY = y - Y;
+
+		double norm = Math.sqrt(Math.pow(deltaX,2) + Math.pow(deltaY,2));
+		double sumRadius = Radius + radius;
+
+		return (norm < sumRadius);
+	}
 }

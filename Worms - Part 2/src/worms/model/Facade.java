@@ -543,7 +543,7 @@ public class Facade implements IFacade
 		
 		public Projectile createProjectile(World world, double x, double y) 
 		{
-			Projectile projectile = new Projectile(world, x, y);
+			Projectile projectile = new Projectile(world.currentWorm());
 			return projectile;
 		}
 		

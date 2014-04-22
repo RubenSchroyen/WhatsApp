@@ -24,8 +24,8 @@ public class WorldTest {
     Food testFood2 = new Food(testWorld,4,4); //niet incl
     Food testFoodNull;                                            //null
    
-    Projectile testProjectile1 = new Projectile(testWorld, 3,3); //incl
-    Projectile testProjectile2 = new Projectile(testWorld, 3,4); //niet incl
+    Projectile testProjectile1 = new Projectile(testWorm1); //incl
+    Projectile testProjectile2 = new Projectile(testWorm2); //niet incl
     Projectile testProjectileNull;                                        //null
    
     Team testTeam1 = new Team("TestTeam1",testWorld);   //incl
@@ -86,7 +86,7 @@ public class WorldTest {
         @Test
         public final void testAddWorm() {
                 final Worm testWorm = new Worm(testWorld, 1.0,1.0,1,Math.PI+2,"TestWorm");
-                testWorld.addWorm(testWorm);
+                testWorld.addWorm();
                 assertEquals(true,testWorld.wormInWorld(testWorm));
         }
  
@@ -111,7 +111,7 @@ public class WorldTest {
  
         @Test
         public final void testAddFood() {
-                testWorld.addFood(testFood2);
+                testWorld.addFood();
                 assertEquals(true, testWorld.foodInWorld(testFood2));
                
         }
@@ -209,8 +209,10 @@ public class WorldTest {
         public final void testProjectileInBounds() {
                 assertEquals(true, testWorld.projectileInBounds(testProjectile1));
                
-                final Projectile testProjectileOut1 = new Projectile(testWorld, 6.0,7.0);
-                final Projectile testProjectileOut2 = new Projectile(testWorld, -6.0,-7.0);
+                final Worm testWormOut1 = new Worm(testWorld, 6.0,7.0,1,0,"TestWorm");
+                final Worm testWormOut2 = new Worm(testWorld, -6.0,-7.0,1,0,"TestWorm");
+                final Projectile testProjectileOut1 = new Projectile(testWormOut1);
+                final Projectile testProjectileOut2 = new Projectile(testWormOut2);
        
                 assertEquals(false, testWorld.projectileInBounds(testProjectileOut1));
                 assertEquals(false, testWorld.projectileInBounds(testProjectileOut2));

@@ -1,9 +1,6 @@
 package worms.model;
 
-//TODO: SHOOT DOESN'T WORK
-//TODO: ADJACENT EN IMPASSABLE NOT OK
-//TODO: MOVE IS IN AN INFINITE LOOP
-//TODO: MAYBE FALL DOESN'T
+//TODO: SHOOT DOESN'T WORK (projectiles don't seem to spawn and bazooka can never shoot)
  
 /**
  * A class of worms involving a position consisting of an X- and Y-coordinate, an angle,
@@ -18,6 +15,7 @@ package worms.model;
  */
  
 import java.lang.Math;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -187,21 +185,7 @@ public class Worm
                 this.setWorld(world);
         }
         
-        /**
-         * Method to calculate the cost of moving in the direction the worm is facing
-         * 
-         * @param distance
-         * 		Amount of steps the worm will move in that direction
-         * 
-         * @return
-         * 		The cost of the movement
-         * 			| cost = (int) Math.ceil( (|cos(angle)| + 4*|sin(angle)|) * nbSteps
-         */
-        public int calculateApCostMove (double distance) 
-        {
-                int cost = (int) Math.ceil((Math.abs(Math.cos(this.getAngle())) + 4*Math.abs(Math.sin(this.getAngle())))*distance);
-                return cost;
-        }
+        
        
         
         /**
@@ -220,30 +204,6 @@ public class Worm
         	return cost;
         }
        
-                       
-       
-		/**
-		 * Method to inspect whether the movement we try to make is a valid one
-		 * 
-		 * @param nbSteps
-		 * 		Amount of steps the worm tries to move
-		 * 
-		 * @return
-		 * 		true if the move is valid
-		 * 
-		 * @throws IllegalArgumentException
-		 * 		- If the amount of steps is smaller than zero
-		 * 			| nbSteps < 0
-		 * 		- If the cost of the movement is bigger than the current amount of AP
-		 * 			| calculateApCostMove(nbSteps) > this.getCurrentAP()
-		 */
-	
-        public boolean isValidMovement() throws IllegalArgumentException
-		{
-            if (calculateApCostMove(1) > this.getCurrentAP())
-            	throw new IllegalArgumentException("Not enough AP");
-            return true;          
-		    }
 		   
 		/**
 		 * Method to inspect whether the turn we try to make is a valid one
@@ -397,7 +357,7 @@ public class Worm
 		{
 		        if ((0 > currentAP) && (currentAP > this.getMaxAP()))
 		        	throw new IllegalArgumentException("Not a valid value for AP");
-		                                return true;
+		        return true;
 		}
 
 
@@ -447,13 +407,7 @@ public class Worm
                 	this.setPosY(newPosition[1]);
                 	this.setCurrentAP(0);
         	}
-        	
-        	for (int index = 0; index < world.fodder.size(); index++)
-        	{
-        		food = world.fodder.get(index);
-				if (this.getPosX() == food.getPosX() || this.getPosY() == food.getPosY())
-					consume();
-        	}
+        	lookForFood();
         }
         
         public boolean canJump()
@@ -913,11 +867,6 @@ public class Worm
 		 * The projectile this worm is shooting
 		 */
 		public Projectile projectile;
-		
-		/*
-		 * The food this worm can eat
-		 */
-		private Food food;
 
 		/*
 		 * The index to determine which weapon is selected
@@ -1117,16 +1066,16 @@ public class Worm
 			{
 				if (this.getSelectedWeapon() == "Bazooka")
 				{
-					Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
-					projectile.shootBazooka(propulsionYield);
-					this.setCurrentAP(getCurrentAP() - 50);
+					Projectile projectile = new Projectile(this);
+					projectile.shootBazooka(propulsionYield, projectile);
+					this.setCurrentAP(this.getCurrentAP() - 50);
 				}
 				
 				if (this.getSelectedWeapon() == "Rifle")
 				{
-					Projectile projectile = new Projectile(world, world.currentWorm().getPosX() + 0.1, world.currentWorm().getPosY() + 0.1);
-					projectile.shootRifle();
-					this.setCurrentAP(getCurrentAP() - 10);
+					Projectile projectile = new Projectile(this);
+					projectile.shootRifle(projectile);
+					this.setCurrentAP(this.getCurrentAP() - 10);
 				}
 			}
 		}
@@ -1144,7 +1093,7 @@ public class Worm
 		 */
 		public void nextTurn()
 		{
-			if (world.currentWorm() != this)
+			if (this.getWorld().currentWorm() != this)
 				this.setHP(getHP() + 10);
 				this.setCurrentAP(getMaxAP());
 		}
@@ -1187,59 +1136,145 @@ public class Worm
 		 * 		| new.getRadius() == this.getRadius()*1.1
 		 * 		| new.food.eaten == true
 		 */
-		private void consume() 
+		private void consume(Food food) 
 		{
 				this.setRadius(this.getRadius()*1.1);
 				food.eaten = true;
 		}
-
-
+		
+		private void lookForFood() 
+		{
+			if (this.getWorld() != null) 
+			{
+				ArrayList<Food> oldFood = new ArrayList<Food>(getWorld().getFodder());
+				for ( Food food : oldFood ) 
+				{
+					if (World.isOverlapping(getPosX(), getPosY(), getRadius(), food.getPosX(), food.getPosY(), food.getRadius())) 
+						consume(food);
+				}
+			}
+		}
 		
 		public void destroy()
 		{
 			if (!isAlive())
-				world.removeWorm(this);
+				this.getWorld().removeWorm(this);
 		}
 
-
-		
 		public void addToTeam(Team team) throws IllegalArgumentException
 		{
 			team.addWorm(this);
 		}
- 
-		public boolean canMove() 
-		{
-			if (this.calculateApCostMove(distance) > this.getCurrentAP())
-				return false;
-			return world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !(this.calculateApCostMove(distance) > this.getCurrentAP());
-		}
 
 		public boolean canFall() 
 		{
-			return world.isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !world.isAdjacent(this.getPosX(), this.getPosY(), this.getRadius());
+			return this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !this.getWorld().isAdjacent(this.getPosX(), this.getPosY(), this.getRadius());
 		}
 
 		public void fall() 
 		{
+			double begin = this.getPosY();
 			while (this.canFall())
 			{
-				{
-					this.setPosY(this.getPosY() - 0.1*this.getRadius());
-				}
+				this.setPosY(this.getPosY() - 0.1*this.getRadius());
+				this.setHP((int) Math.floor(this.getHP() - 3*(begin - this.getPosY())));
 			}
-			// TODO Auto-generated method stub
-			
+			lookForFood();
+		}
+		
+		public void move() throws IllegalArgumentException
+		{
+			if (!canMove())
+				throw new IllegalArgumentException("This move is not available");
+
+			double[] distance = this.getMoveDistance();
+
+			this.setCurrentAP(this.getCurrentAP() - this.calculateAPCostMove(distance));
+			this.setPosX(getPosX() + distance[0]);
+			this.setPosY(getPosY() + distance[1]);
+			for (int index = 0; index < this.getWorld().fodder.size(); index++ )
+			lookForFood();
+			fall();
 		}
 
-		public void move() 
+		protected double[] getMoveDistance() 
 		{
-			if (this.canMove())
-			{
-				
+			//Test different values for X, Y and D
+			double X = this.getPosX();
+			double Y = this.getPosY();
+			double D = Math.abs(getAngle() - Math.atan2(Y - getPosY(), X - getPosX()));
+
+			//initialize the best values for radius, X, Y, D and change them later in the method
+			double bestRadius = 0;
+			double bestX = X;
+			double bestY = Y;
+			double bestD = D;
+
+			//initialize the interval of the radius that we want to test (= minimum of the resolution values in world)
+			double testRadiusInterval = Math.min(getWorld().getResolutionX(), getWorld().getResolutionY());
+			double scaleD = 1;
+			double scaleRadius = 1;
+
+			//we search for the farthest adjacent location that we can reach
+			boolean adjacent = false;
+			for (double testRadius = this.getRadius(); testRadius >= 0.1; testRadius -= testRadiusInterval) 
+			{ 
+				for (double testAngle =- 0.7875; testAngle <= 0.7875; testAngle += 0.0175) 
+				{
+					X = this.getPosX() + testRadius*Math.cos(this.getAngle()+testAngle);
+					Y = this.getPosY() + testRadius*Math.sin(this.getAngle()+testAngle);
+					D = Math.abs(this.getAngle() - Math.atan2(Y - this.getPosY(), X - this.getPosX()));
+					
+					//we see if this location is indeed the farthest we can reach and reset our values of bestRadius, bestX, bestY and bestD
+					if (scaleD * (D - bestD) + scaleRadius * (bestRadius - testRadius) < 0 ) 
+					{ 
+						//this can only happen when this location is also adjacent, else we will fall down again
+						if ( this.getWorld().isAdjacent(X,Y,getRadius()) ) 
+						{
+							adjacent = true;
+							bestRadius = testRadius;
+							bestX = X;
+							bestY = Y;
+							bestD = D;
+						}
+					}
+				}
 			}
-			// TODO Auto-generated method stub
-			
+
+			if (!adjacent) 
+			//if we have not found any adjacent locations nearby, we use the values for bestX and bestY given in the beginning of this method
+			{
+				for (double testRadius = getRadius(); testRadius >= 0.1; testRadius -= testRadiusInterval) 
+				{ 
+					X = this.getPosX() + testRadius * Math.cos(this.getAngle());
+					Y = this.getPosY() + testRadius * Math.sin(this.getAngle());
+					//this can only when this location is also adjacent, else we will fall down again
+					if (this.getWorld().isPassable(X, Y, this.getRadius())) 
+					{
+						bestX = X;
+						bestY = Y;
+						break;
+					}
+				}
+			}
+
+			//the output is a matrix of 2 coordinates that will be the farthest location available that is also adjacent
+			double[] output = new double[2];
+			output[0] = bestX - this.getPosX();
+			output[1] = bestY - this.getPosY();
+			return output;
+		}
+
+		protected int calculateAPCostMove(double[] distance) 
+		{
+			double slope = Math.atan2(distance[1], distance[0]);
+			return (int) Math.ceil( Math.abs(Math.cos(slope)) + Math.abs(4*Math.sin(slope)));
+		}
+
+		public boolean canMove() 
+		{
+			double[] distance = this.getMoveDistance();
+			return (isValidAP(this.getCurrentAP() - this.calculateAPCostMove(distance)));
 		}
 }
                                
