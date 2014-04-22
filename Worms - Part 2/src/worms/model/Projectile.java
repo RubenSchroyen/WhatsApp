@@ -9,7 +9,6 @@ public class Projectile
 	World world;
 	private double y;
 	private double x;
-	private double radius;
 	final double density = 7800;
 	private double mass;
 	private double force;
@@ -69,9 +68,11 @@ public class Projectile
 		return Math.pow(this.getMass()/(density*(4.0/3.0)*Math.PI), 1.0/3.0);
 	}
 
+	private boolean hitWorm = false;
+	
 	public boolean isActive() 
-	{
-		if (this.getWorld().projectileInBounds(this) && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
+	{		
+		if (hitWorm == true && this.getWorld().projectileInBounds(this) && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
 			return true;
 		lookForWorms();
 		return false;
@@ -84,8 +85,11 @@ public class Projectile
 			ArrayList<Worm> worms = new ArrayList<Worm>(getWorld().getWorms());
 			for (Worm worm : worms ) 
 			{
-				if (World.isOverlapping(this.getPosX(), this.getPosY(), this.getRadius(), worm.getPosX(), worm.getPosY(), worm.getRadius())) 
+				if (worm != getWorld().currentWorm() && World.isOverlapping(this.getPosX(), this.getPosY(), this.getRadius(), worm.getPosX(), worm.getPosY(), worm.getRadius())) 
+				{
 					damage(worm, damageWeapon());
+					hitWorm = true;
+				}
 			}
 		}
 	}
@@ -107,15 +111,18 @@ public class Projectile
 	public void destroy()
 	{
 		if (!isActive())
+		{
 			this.getWorld().removeProjectile(this);
+			this.worm = null;
+		}
 	}
 	
-	public void shootRifle(Projectile projectile) 
+	public void shootRifle(double propulsionYield, Projectile projectile) 
 	{
 		this.getWorld().addProjectile(projectile);
 		projectile.setMass(10);
 		projectile.setForce(1.5);
-		Jump();
+		Jump(propulsionYield);
 	}
 
 	private void setMass(double mass) 
@@ -133,7 +140,7 @@ public class Projectile
 		this.getWorld().addProjectile(projectile);
 		projectile.setMass(300);
 		projectile.setForce(2.5 + 0.07*propulsionYield);
-		Jump();
+		Jump(propulsionYield);
 	}
 
 	private void setForce(double force) 
@@ -154,15 +161,22 @@ public class Projectile
      * 		| new.getPosX() == newPosition[0]
      * 		| new.getPosY() == newPosition[1]
      */
-    public void Jump() 
-    {       
-    	while (this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
-    	{
-            double [] newPosition = this.JumpStep(this.JumpTime(this.getTime()));
-            this.setPosX(newPosition[0]);
-            this.setPosY(newPosition[1]);
-    	}
-    }
+	 public void Jump(double delta) 
+     {
+     	if (this.canJump())
+     	{	
+             double [] newPosition = this.JumpStep(this.JumpTime(delta));
+             this.setPosX(newPosition[0]);
+             this.setPosY(newPosition[1]);
+     	}
+     }
+	 
+	 public boolean canJump()
+     {
+     	if (this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
+     		return true;
+     	return false;
+     }
 	   
 	              
 	/**
@@ -184,13 +198,12 @@ public class Projectile
 	 * 		If the worm does not have enough AP, we set the amount of time in the air to zero
 	 * 		| new.getTime() == 0.0
 	 */
-    public double JumpTime(double time)
+    public double JumpTime(double delta)
     {
-	    this.setVelocity(this.getForce()/this.getMass()*0.5);
-	    this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*this.getWorld().currentWorm().getAngle()) ) / g);
-	    time = this.getDistance() / (this.getVelocity() * Math.cos(this.getWorld().currentWorm().getAngle())) ;
-	    this.setTime(time);
-	    return this.getTime();
+	     this.setVelocity(this.getForce()/this.getMass()*0.5);
+	     this.setDistance(delta);
+	     this.setTime(this.getDistance() / (this.getVelocity() * Math.cos(worm.getAngle()) ) );	
+	     	return this.getTime();
 	}
 	   
 	    
@@ -243,15 +256,15 @@ public class Projectile
 	 * 				| new.JumpStep == original
 	 * 			
 	 */
-    public double[] JumpStep(double DeltaT)
-    {               		
-	        double velocityX = this.getVelocity() * Math.cos(this.getWorld().currentWorm().getAngle());
-	        double velocityY = this.getVelocity() * Math.sin(this.getWorld().currentWorm().getAngle());
+	public double[] JumpStep(double DeltaT)
+    {       
+	        double velocityX = this.getVelocity() * Math.cos(worm.getAngle());
+	        double velocityY = this.getVelocity() * Math.sin(worm.getAngle());
 	        double x = this.getPosX() + (velocityX * DeltaT);
 	        double y = this.getPosY() + (velocityY * DeltaT - 0.5*g*Math.pow(DeltaT, 2));
 	        double jumpstep[] = new double[] {x,y};
 	        
-	        if (Util.fuzzyLessThanOrEqualTo(0, this.getWorld().currentWorm().getAngle()) && (Util.fuzzyLessThanOrEqualTo(this.getWorld().currentWorm().getAngle(), Math.PI)))
+	        if (Util.fuzzyLessThanOrEqualTo(0, worm.getAngle()) && (Util.fuzzyLessThanOrEqualTo(worm.getAngle(), Math.PI)))
 	        	return jumpstep;
 	        
 	        else 
@@ -260,16 +273,11 @@ public class Projectile
 	        	return original;
 	        }
 	    
-	    }
+	}
 
 	private double getVelocity() 
 	{
 		return velocity;
-	}
-
-	public void setRadius(double radius) 
-	{
-		this.radius = this.getWorld().currentWorm().getRadius() + 0.1;
 	}
 	
 	public boolean isValidPosition(double posX, double posY) throws IllegalArgumentException 

@@ -4,7 +4,6 @@ package worms.model;
 import java.util.Collection;
 import java.util.Random;
 
-//TODO: Spawning bug
 
 public class Facade implements IFacade 
 {
@@ -72,11 +71,22 @@ public class Facade implements IFacade
          * 
          * @effect	
          * 		The worm's angle will change to the new one if there is enough AP left
+         * 
+         * @throws ModelException 
+         *		If the turn is not a valid one (not enough AP)
+         *		| !worm.isValidTurn()
          */
         @Override
-        public void turn(Worm worm, double angle) 
+        public void turn(Worm worm, double angle) throws ModelException
         {
-               worm.Turn(angle);
+        	try
+			{
+				worm.Turn(angle);
+			}
+			catch (IllegalArgumentException exc)
+        	{
+             throw new ModelException(exc.getMessage());
+            } 
         }
         
        
@@ -460,9 +470,16 @@ public class Facade implements IFacade
 		}
 
 		@Override
-		public void move(Worm worm) 
+		public void move(Worm worm) throws ModelException
 		{
-			worm.move();
+			try
+			{
+				worm.move();
+			}
+			catch (IllegalArgumentException exc)
+        	{
+             throw new ModelException(exc.getMessage());
+            }
 		}
 
 		@Override
@@ -475,7 +492,8 @@ public class Facade implements IFacade
 		@Override
 		public void shoot(Worm worm, int propulsionYield) 
 		{
-			worm.shoot(propulsionYield);
+			if (canShoot(worm))
+				worm.shoot(propulsionYield);
 		}
 
 		@Override
@@ -513,7 +531,7 @@ public class Facade implements IFacade
 		@Override
 		public void jump(Projectile projectile, double jumpTimeStep) 
 		{
-			projectile.Jump();
+			projectile.Jump(jumpTimeStep);
 		}
 
 		@Override

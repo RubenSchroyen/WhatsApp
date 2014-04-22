@@ -41,7 +41,7 @@ public class Food
 
 	public double getPosX() 
 	{
-		return y;
+		return x;
 	}
 
 	public World getWorld() 
@@ -51,7 +51,7 @@ public class Food
 
 	public double getRadius() 
 	{
-		return radius;
+		return 0.20;
 	}
 	
 	public void setRadius(double radius)
@@ -76,7 +76,10 @@ public class Food
 	public void destroy()
 	{
 		if (!isActive())
+		{
 			world.removeFood(this);
+			this.setWorld(null);
+		}
 	}
 
 }

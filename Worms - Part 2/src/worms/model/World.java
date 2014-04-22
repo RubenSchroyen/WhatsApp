@@ -16,23 +16,26 @@ public class World
 	public List<Projectile> projectiles = new ArrayList<Projectile>();
 	public List<Team> teams = new ArrayList<Team>();
 	private int index = 0;
+	private Team currentTeam;
+	Random RandomGenerator = new Random();
 
 	
 	public World(double worldWidth, double worldHeight, boolean[][] passableMap, Random random) 
 	{
-		worms = new ArrayList<Worm>();
-		fodder = new ArrayList<Food>();
-		projectiles = new ArrayList<Projectile>();
-		teams = new ArrayList<Team>();
+		this.worms = new ArrayList<Worm>();
+		this.fodder = new ArrayList<Food>();
+		this.projectiles = new ArrayList<Projectile>();
+		this.teams = new ArrayList<Team>();
 		this.worldHeight = worldHeight;
 		this.worldWidth = worldWidth;
 		this.setPassableMap(passableMap);
+		RandomGenerator = random;
 	}
 	
 	public Worm currentWorm()
 	{
 		Worm worm = worms.get(this.getIndex());
-		if (worm.getCurrentAP() == 0)
+		if (worm.getCurrentAP() == 0 && worms.size() > 1)
 			this.nextWorm();
 		return worm;
 	}
@@ -97,14 +100,18 @@ public class World
 	
 	public String getWinner()
 	{
-		if (isFinished())
-			return teams.get(0).getName();
+		if (isFinished() && this.amountOfTeams() == 1)
+			return (teams.get(0).getName());
+		if (isFinished() && this.amountOfTeams() == 0 && worms.size() == 1)
+			return (worms.get(0).getName());
 		return null;
 	}
 
 	public boolean isFinished()
 	{
-		if (teams.size() == 1)
+		if (teams.size() == 1 && this.amountOfWorms() == teams.get(0).getAllWorms().size())
+			return true;
+		if (teams.size() == 0 && worms.size() == 1)
 			return true;
 		return false;
 	}
@@ -119,17 +126,156 @@ public class World
 		return worms.contains(worm);
 	}
 	
-	public void addWorm() throws IllegalArgumentException
+	public void addWorm() 
 	{
-		double randomPositionX = Math.random() * this.getWorldWidth();
-		double randomPositionY = Math.random() * this.getWorldHeight();
-		double randomAngle = Math.random() * 2 * Math.PI;
 		
-		Worm worm = new Worm(this, randomPositionX, randomPositionY, 0.25, randomAngle, "Eric");
-		assert (wormExists(worm)) && (worm.getWorld() == this);
-		assert (!wormInWorld(worm));
-		if (!wormInBounds(worm) || !isAdjacent(worm.getPosX(), worm.getPosY(), worm.getRadius()) || !isPassable(worm.getPosX(), worm.getPosY(), worm.getRadius()))
+		double randomPositionX = RandomGenerator.nextDouble() * (this.getWorldWidth() + 1);
+		double randomPositionY = RandomGenerator.nextDouble() * (this.getWorldHeight() + 1);
+		double randomAngle = RandomGenerator.nextDouble() * 2 * Math.PI;
+		double randomRadius = RandomGenerator.nextDouble() * 0.75 + 0.25;
+		
+		Worm worm = new Worm(this, randomPositionX, randomPositionY, randomRadius, randomAngle, "Eric");
+		worm.setPosX(this.findAdjacentX(worm, randomPositionX));
+		worm.setPosY(this.findAdjacentY(worm, randomPositionY));
+		
+		assert(wormExists(worm) && worm.getWorld() == this);
+		assert(!wormInWorld(worm));
+		
+		if (wormInBounds(worm) && isAdjacent(worm.getPosX(), worm.getPosY(), worm.getRadius()))
+		{
+			if (fodder.size() > 1)
+			{
+				for ( Food food : fodder ) 
+				{
+					if (World.isOverlapping(worm.getPosX(), worm.getPosY(), worm.getRadius(), food.getPosX(), food.getPosY(), food.getRadius())) 
+						return;
+				}
+			}
+			
+			if (worms.size() > 1)
+			{
+				for ( Worm otherWorm : worms ) 
+				{
+					if (World.isOverlapping(worm.getPosX(), worm.getPosY(), worm.getRadius(), otherWorm.getPosX(), otherWorm.getPosY(), otherWorm.getRadius())) 
+						return;
+				}
+			}
 			worms.add(worm);
+			worm.addToTeam(this.getCurrentTeam());
+		}
+		else 
+			addWorm();
+	}
+	
+	public Team getCurrentTeam() 
+	{
+		return currentTeam;
+	}
+
+	public void setCurrentTeam(Team currentTeam) 
+	{
+		this.currentTeam = currentTeam;
+	}
+
+	public double findAdjacentX(Worm worm, double x)
+	{
+		double center = this.getWorldWidth() / 2;
+		double currentX = worm.getPosX();
+		
+		while (Math.abs(center - currentX) > worm.getRadius() && !isAdjacent(currentX, worm.getPosY(), worm.getRadius())) 
+		{
+			if (currentX < center) 
+			{
+				System.out.println("1a");
+				currentX += 1 * (this.getWorldWidth() / passableMap[0].length);
+			}
+			
+			if (currentX > center) 
+			{
+				System.out.println("1b");
+				currentX -= 1 * (this.getWorldWidth() / passableMap[0].length);
+			}
+			System.out.println("1c");
+			worm.setPosX(currentX);
+		}
+		System.out.println("1d");
+		if (Math.abs(center - currentX) > worm.getRadius())
+			return currentX;
+		else
+			return 0;
+	}
+	
+	public double findAdjacentY(Worm worm, double y)
+	{
+		double center = this.getWorldHeight() / 2;
+		double currentY = worm.getPosY();
+		while (Math.abs(center - currentY) > worm.getRadius() && !isAdjacent(worm.getPosX(), currentY, worm.getRadius())) 
+		{	
+			if (currentY < center) 
+			{
+				currentY += 1 * (this.getWorldHeight() / passableMap.length);
+			}
+			
+			if (currentY > center) 
+			{
+				currentY -= 1 * (this.getWorldHeight() / passableMap.length);
+			}
+			worm.setPosY(currentY);
+		}
+		if (Math.abs(center - currentY) > worm.getRadius())
+			return currentY;
+		else
+			return 0;
+	}
+	
+	public double findAdjacentX(Food food, double x)
+	{
+		double center = this.getWorldWidth() / 2;
+		double currentX = food.getPosX();
+		
+		while (Math.abs(center - currentX) > food.getRadius() && !isAdjacent(currentX, food.getPosY(), food.getRadius())) 
+		{
+			if (currentX < center) 
+			{
+				currentX += 1 * (this.getWorldWidth() / passableMap[0].length);
+				
+			}
+			
+			if (currentX > center) 
+			{
+				currentX -= 1 * (this.getWorldWidth() / passableMap[0].length);
+				
+			}
+			food.setPosX(currentX);
+			
+		}
+		if (Math.abs(center - currentX) > food.getRadius())
+			return currentX;
+		else
+			return 0;
+	}
+	
+	public double findAdjacentY(Food food, double y)
+	{
+		double center = this.getWorldHeight() / 2;
+		double currentY = food.getPosY();
+		while (Math.abs(center - currentY) > food.getRadius() && !isAdjacent(food.getPosX(), currentY, food.getRadius())) 
+		{	
+			if (currentY < center) 
+			{
+				currentY += 1 * (this.getWorldHeight() / passableMap.length);
+			}
+			
+			if (currentY > center) 
+			{
+				currentY -= 1 * (this.getWorldHeight() / passableMap.length);
+			}
+			food.setPosY(currentY);
+		}
+		if (Math.abs(center - currentY) > food.getRadius())
+			return currentY;
+		else
+			return 0;
 	}
 	
 	public void removeWorm(Worm worm) throws IllegalArgumentException
@@ -149,17 +295,46 @@ public class World
 		return fodder.contains(food);
 	}
 	
-	public void addFood() throws IllegalArgumentException
+	public void addFood() 
 	{
-		Food food = new Food(this, Math.random() * (this.getWorldWidth() + 1), Math.random() * (this.getWorldHeight() + 1));
-		assert (foodExists(food)) && (food.getWorld() == null);
-		assert (!foodInWorld(food));
-		fodder.add(food);
+		double randomPositionX = RandomGenerator.nextDouble() * (this.getWorldWidth() + 1);
+		double randomPositionY = RandomGenerator.nextDouble() * (this.getWorldHeight() + 1);
+		
+		Food food = new Food(this, randomPositionX, randomPositionY);
+	
+		food.setPosX(this.findAdjacentX(food, randomPositionX));
+		food.setPosY(this.findAdjacentY(food, randomPositionY));
+		assert(foodExists(food) && food.getWorld() == this);
+		assert(!foodInWorld(food));
+		if (foodInBounds(food) && isAdjacent(food.getPosX(), food.getPosY(), food.getRadius()))
+		{
+			if (fodder.size() > 1)
+			{
+			
+				for ( Food otherFood : fodder ) 
+				{
+					if (World.isOverlapping(food.getPosX(), food.getPosY(), food.getRadius(), otherFood.getPosX(), otherFood.getPosY(), otherFood.getRadius())) 
+						return;
+				}
+			}
+			
+			if (worms.size() > 1)
+			{
+				for ( Worm otherWorm : worms ) 
+				{
+					if (World.isOverlapping(food.getPosX(), food.getPosY(), food.getRadius(), otherWorm.getPosX(), otherWorm.getPosY(), otherWorm.getRadius())) 
+						return;
+				}
+			}
+			fodder.add(food);
+		}
+		else 
+			addFood();
 	}
 	
 	public void removeFood(Food food) throws IllegalArgumentException
 	{
-		assert (foodExists(food)) && (food.getWorld() != null);
+		assert (foodExists(food)) && (food.getWorld() == this);
 		assert (foodInWorld(food));
 		fodder.remove(food);
 	}
@@ -176,7 +351,7 @@ public class World
 	
 	public void addProjectile(Projectile projectile) throws IllegalArgumentException
 	{
-		assert (projectileExists(projectile)) && (projectile.getWorld() == null);
+		assert (projectileExists(projectile)) && (projectile.getWorld() == this);
 		assert (!projectileInWorld(projectile));
 		projectiles.add(projectile);
 	}
@@ -203,6 +378,7 @@ public class World
 		assert (teamExists(team)) && (team.getWorld() == null);
 		assert (!teamInWorld(team));
 		assert (teams.size() < 10);
+		this.setCurrentTeam(team);
 		teams.add(team);
 	}
 	
@@ -388,6 +564,7 @@ public class World
 		}
 		return false;
 	}
+	
 	
 	public static boolean isOverlapping(double X, double Y, double radius, double x, double y, double Radius) 
 	{

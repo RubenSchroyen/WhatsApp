@@ -8,8 +8,8 @@ import worms.model.Worm;
 public class Team 
 {
 	
-	private final String name;
-	private final World world;
+	private String name;
+	private World world;
 	private ArrayList<Worm> teamMembers;
 
 	public Team(String name, World world) 
@@ -18,6 +18,7 @@ public class Team
 			throw new IllegalArgumentException("Name not valid");
 		this.name = name;
 		this.world = world;
+		this.teamMembers = new ArrayList<Worm>();
 	}
 
 	@Basic
@@ -121,6 +122,9 @@ public class Team
 	public void destroy()
 	{
 		if (!isActive())
+		{
 			world.removeTeam(this);
+			this.world = null;
+		}
 	}
 }

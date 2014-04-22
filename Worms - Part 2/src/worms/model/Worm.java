@@ -1,6 +1,14 @@
 package worms.model;
 
-//TODO: SHOOT DOESN'T WORK (projectiles don't seem to spawn and bazooka can never shoot)
+//TODO: SHOOT DOESN'T WORK (projectiles don't seem to spawn and bazooka can never shoot) ------> HIGHEST PRIORITY
+
+//TODO: Make jump stop when hitting object or impassable, make worm fall after jump ------> LOWER PRIORITY
+
+//TODO: Worms don't spawn on the ground, but literally on an adjacent tile (is this allowed?) ------> LOWER PRIORITY
+
+//TODO: Worms/Food/Projectiles/Teams have to be removed ------> HIGHEST PRIORITY
+
+//TODO: DOCUMENTATION ------> HIGHEST PRIORITY
  
 /**
  * A class of worms involving a position consisting of an X- and Y-coordinate, an angle,
@@ -92,7 +100,7 @@ public class Worm
 	     /**
 	      *   The earth acceleration (9.80665)
 	      */
-         private final double g = 9.80665;
+         public final double g = 9.80665;
 	     
 	     
          /**
@@ -227,7 +235,7 @@ public class Worm
 			if (angle < -Math.PI)
 				angle = -Math.PI;
 			if (this.getCurrentAP() < calculateApCostTurn(angle))
-				throw new IllegalArgumentException("Not enough AP");
+				return false;
 		    return true;
 		}            
 		   
@@ -380,13 +388,15 @@ public class Worm
 		 *      | new.getAngle() == angle  
 		 *      | new.getCurrentAP() == currentAP   
 		 */
-		public void Turn(double newangle) throws IllegalArgumentException 
+		public void Turn(double newangle) throws IllegalArgumentException
 		{
-		        if (isValidTurn(newangle) != true )
-		                throw new IllegalArgumentException("Insufficient Action Points");
-		                   
+		        if (isValidTurn(newangle) == true )    
+		        {
 		            this.angle = this.getAngle() + newangle;
 		            this.currentAP = this.getCurrentAP() - calculateApCostTurn(Math.abs(newangle - this.angle));    
+		        }
+		        else
+		        	throw new IllegalArgumentException("Not enough AP");
 		                   
 		 }
 		   
@@ -402,17 +412,17 @@ public class Worm
         {
         	if (this.canJump())
         	{	
-                	double [] newPosition = this.JumpStep(this.JumpTime());
-                	this.setPosX(newPosition[0]);
-                	this.setPosY(newPosition[1]);
-                	this.setCurrentAP(0);
+                double [] newPosition = this.JumpStep(this.JumpTime());
+                this.setPosX(newPosition[0]);
+                this.setPosY(newPosition[1]);
+                this.setCurrentAP(0);
         	}
         	lookForFood();
         }
         
         public boolean canJump()
         {
-        	if (this.getCurrentAP() > 0)
+        	if (this.getCurrentAP() > 0 && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
         		return true;
         	return false;
         }
@@ -439,14 +449,14 @@ public class Worm
 		 */
         public double JumpTime()
         {
-		    	if (this.getCurrentAP() != 0)
-		    	{
-		        	this.setForce((5 * this.getCurrentAP()) + (this.getMass() * g));
-		            this.setVelocity(this.getForce()/this.getMass()*0.5);
-		            this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*this.getAngle()) ) / g);
-		            this.setTime(this.getDistance() / (this.getVelocity() * Math.cos(this.getAngle()) ) );
-		            return this.getTime();
-		        }
+		    if (this.getCurrentAP() != 0)
+		    {
+		    	this.setForce((5 * this.getCurrentAP()) + (this.getMass() * g));
+		        this.setVelocity(this.getForce()/this.getMass()*0.5);
+		        this.setDistance( (Math.pow(this.getVelocity(), 2) * Math.sin(2*this.getAngle()) ) / g);
+		        this.setTime(this.getDistance() / (this.getVelocity() * Math.cos(this.getAngle()) ) );	
+		    		return this.getTime();
+		    }
 		    else 
 		    {
 		    	return 0.0;
@@ -479,7 +489,7 @@ public class Worm
 		 * 			
 		 */
         public double[] JumpStep(double DeltaT)
-        {               		
+        {       
 		        double velocityX = this.getVelocity() * Math.cos(this.getAngle());
 		        double velocityY = this.getVelocity() * Math.sin(this.getAngle());
 		        double x = this.getPosX() + (velocityX * DeltaT);
@@ -495,7 +505,7 @@ public class Worm
 		        	return original;
 		        }
 		    
-		    }
+		}
 		    
 
 		/**
@@ -945,6 +955,10 @@ public class Worm
 		{
 			if (isValidHP(HP))
 				this.currentHP = HP;
+			if (HP < 0)
+				this.currentHP = 0;
+			if (HP > this.getMaxHP())
+				this.currentHP = this.getMaxHP();
 		}
 		
 		/**
@@ -956,17 +970,13 @@ public class Worm
 		 * @return
 		 * 		true if the value of currentAP is a valid one
 		 * 
-		 * @throws IllegalArgumentException
-		 * 		If the amount of hp is smaller than zero and bigger than the maximum amount of AP possible
-		 * 			| currentAP < 0 
-		 * 			| currentAP > this.getMaxHP()
 		 */
-		public boolean isValidHP(int hp) throws IllegalArgumentException
+		public boolean isValidHP(int hp) 
 		{
 			if (hp < 0)
-				this.setHP(0);
+				return false;
 			if (hp > this.getMaxHP())
-				this.setHP(this.getMaxHP());
+				return false;
 			return true;
 		}
 
@@ -1074,7 +1084,7 @@ public class Worm
 				if (this.getSelectedWeapon() == "Rifle")
 				{
 					Projectile projectile = new Projectile(this);
-					projectile.shootRifle(projectile);
+					projectile.shootRifle(propulsionYield, projectile);
 					this.setCurrentAP(this.getCurrentAP() - 10);
 				}
 			}
@@ -1099,7 +1109,6 @@ public class Worm
 		}
 
 		
-
 		/*
 		 * this method determines whether the worm can shoot or not
 		 * 
@@ -1109,22 +1118,25 @@ public class Worm
 		 * 		
 		 *		We then make a difference between the selected weapons
 		 *			- Bazooka:
-		 *				true when the selected weapon is a bazooka and the worm has more than 50 AP left
+		 *				true when the selected weapon is a bazooka and the worm has more than 50 AP left, while in a passable location
 		 *					| this.getSelectedWeapon() == "Bazooka"
 		 *					| this.getCurrentAP() >= 50
+		 *					| this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius())
 		 *
 		 *			- Rifle:
-		 *				true when the selected weapon is a rifle and the worm has more than 10 AP left
+		 *				true when the selected weapon is a rifle and the worm has more than 10 AP left, while in a passable location
 		 *					| this.getSelectedWeapon() == "Rifle"
 		 *					| this.getCurrentAP() >= 10
+		 *					| this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius())
 		 */
 		public boolean canShoot()
 		{
-				if (this.getSelectedWeapon() == "Bazooka" && this.getCurrentAP() >= 50)
+				if (this.getSelectedWeapon() == "Bazooka" && this.getCurrentAP() >= 50 && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
 					return true;
-				if (this.getSelectedWeapon() == "Rifle" && this.getCurrentAP() >= 10)
+				else if (this.getSelectedWeapon() == "Rifle" && this.getCurrentAP() >= 10 && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()))
 					return true;
-				return false;
+				else
+					return false;
 		}
 		
 		/*
@@ -1136,10 +1148,11 @@ public class Worm
 		 * 		| new.getRadius() == this.getRadius()*1.1
 		 * 		| new.food.eaten == true
 		 */
-		private void consume(Food food) 
+		public void consume(Food food) 
 		{
 				this.setRadius(this.getRadius()*1.1);
 				food.eaten = true;
+				food.destroy();
 		}
 		
 		private void lookForFood() 
@@ -1158,17 +1171,21 @@ public class Worm
 		public void destroy()
 		{
 			if (!isAlive())
+			{
 				this.getWorld().removeWorm(this);
+				this.setWorld(null);
+			}
 		}
 
 		public void addToTeam(Team team) throws IllegalArgumentException
 		{
-			team.addWorm(this);
+			if (team != null)
+				team.addWorm(this);
 		}
 
 		public boolean canFall() 
 		{
-			return this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !this.getWorld().isAdjacent(this.getPosX(), this.getPosY(), this.getRadius());
+			return this.isAlive() && this.getWorld().isPassable(this.getPosX(), this.getPosY(), this.getRadius()) && !this.getWorld().isAdjacent(this.getPosX(), this.getPosY(), this.getRadius());
 		}
 
 		public void fall() 
@@ -1176,7 +1193,7 @@ public class Worm
 			double begin = this.getPosY();
 			while (this.canFall())
 			{
-				this.setPosY(this.getPosY() - 0.1*this.getRadius());
+				this.setPosY(this.getPosY() - 0.01*this.getRadius());
 				this.setHP((int) Math.floor(this.getHP() - 3*(begin - this.getPosY())));
 			}
 			lookForFood();
@@ -1192,7 +1209,6 @@ public class Worm
 			this.setCurrentAP(this.getCurrentAP() - this.calculateAPCostMove(distance));
 			this.setPosX(getPosX() + distance[0]);
 			this.setPosY(getPosY() + distance[1]);
-			for (int index = 0; index < this.getWorld().fodder.size(); index++ )
 			lookForFood();
 			fall();
 		}
